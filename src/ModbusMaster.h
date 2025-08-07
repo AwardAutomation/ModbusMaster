@@ -74,7 +74,10 @@ class ModbusMaster
     void begin(uint8_t, Stream &serial);
     void idle(void (*)());
     void preTransmission(void (*)());
+    void preTransmission(void (*)(int8_t dePin, int8_t rePin));
     void postTransmission(void (*)());
+    void postTransmission(void (*)(int8_t dePin, int8_t rePin));
+    void attachPins(int8_t dePin, int8_t rePin = -1);
 
     // Modbus exception codes
     /**
@@ -233,7 +236,9 @@ class ModbusMaster
     uint16_t* rxBuffer; // from Wire.h -- need to clean this up Rx
     uint8_t _u8ResponseBufferIndex;
     uint8_t _u8ResponseBufferLength;
-    
+    uint8_t _dePin = -1;
+    uint8_t _rePin = -1;
+
     // Modbus function codes for bit access
     static const uint8_t ku8MBReadCoils                  = 0x01; ///< Modbus function 0x01 Read Coils
     static const uint8_t ku8MBReadDiscreteInputs         = 0x02; ///< Modbus function 0x02 Read Discrete Inputs
@@ -258,8 +263,12 @@ class ModbusMaster
     void (*_idle)();
     // preTransmission callback function; gets called before writing a Modbus message
     void (*_preTransmission)();
+    // overload: preTransmission callback function with pin argument
+    void (*_preTransmissionWithPin)(int8_t dePin, int8_t rePin);
     // postTransmission callback function; gets called after a Modbus message has been sent
     void (*_postTransmission)();
+    // overload: postTransmission callback function
+    void (*_postTransmissionWithPin)(int8_t dePin, int8_t rePin);
 };
 #endif
 

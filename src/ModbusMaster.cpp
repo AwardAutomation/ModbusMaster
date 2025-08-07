@@ -198,6 +198,17 @@ void ModbusMaster::preTransmission(void (*preTransmission)())
   _preTransmission = preTransmission;
 }
 
+void ModbusMaster::preTransmission(void (*preTransmission)(int8_t dePin, int8_t rePin))
+{
+  _preTransmissionWithPin = preTransmission;
+}
+
+void ModbusMaster::attachPins(int8_t dePin, int8_t rePin) 
+{
+  _dePin = dePin;
+  _rePin = rePin;
+}
+
 /**
 Set post-transmission callback function.
 
@@ -215,7 +226,23 @@ void ModbusMaster::postTransmission(void (*postTransmission)())
 {
   _postTransmission = postTransmission;
 }
+/**
+Set post-transmission callback function.
 
+This function gets called after a Modbus message has finished sending
+(i.e. after all data has been physically transmitted onto the serial
+bus).
+
+Typical usage of this callback is to enable an RS485 transceiver's
+Receiver Enable pin, and disable its Driver Enable pin.
+
+@see ModbusMaster::ModbusMasterTransaction()
+@see ModbusMaster::preTransmission()
+*/
+void ModbusMaster::postTransmission(void (*postTransmission)(int8_t dePin, int8_t rePin))
+{
+  _postTransmissionWithPin = postTransmission;
+}
 
 /**
 Retrieve data from response buffer.
@@ -709,6 +736,10 @@ uint8_t ModbusMaster::ModbusMasterTransaction(uint8_t u8MBFunction)
   {
     _preTransmission();
   }
+  else if (_preTransmissionWithPin) 
+  {
+    _preTransmissionWithPin(_dePin, _rePin);
+  }
   for (i = 0; i < u8ModbusADUSize; i++)
   {
     _serial->write(u8ModbusADU[i]);
@@ -720,7 +751,11 @@ uint8_t ModbusMaster::ModbusMasterTransaction(uint8_t u8MBFunction)
   {
     _postTransmission();
   }
-  
+  else if (_postTransmissionWithPin)
+  {
+    _postTransmissionWithPin(_dePin, _rePin);
+  }
+
   // loop until we run out of time or bytes, or an error occurs
   u32StartTime = millis();
   while (u8BytesLeft && !u8MBStatus)
