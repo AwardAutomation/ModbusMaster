@@ -31,7 +31,7 @@ Arduino library for communicating with Modbus slaves over RS232/485 (via RTU pro
 
 
 /* _____GLOBAL VARIABLES_____________________________________________________ */
-
+ uint16_t ModbusMaster::ku16MBResponseTimeout = 2000;           ///< Modbus timeout [milliseconds]
 
 /* _____PUBLIC FUNCTIONS_____________________________________________________ */
 /**

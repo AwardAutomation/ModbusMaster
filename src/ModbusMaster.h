@@ -219,6 +219,7 @@ class ModbusMaster
     uint8_t  maskWriteRegister(uint16_t, uint16_t, uint16_t);
     uint8_t  readWriteMultipleRegisters(uint16_t, uint16_t, uint16_t, uint16_t);
     uint8_t  readWriteMultipleRegisters(uint16_t, uint16_t);
+    static void setTimeout(uint16_t timeout){ku16MBResponseTimeout = timeout;};
     
   private:
     Stream* _serial;                                             ///< reference to serial port object
