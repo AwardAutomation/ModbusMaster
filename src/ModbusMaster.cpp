@@ -198,15 +198,10 @@ void ModbusMaster::preTransmission(void (*preTransmission)())
   _preTransmission = preTransmission;
 }
 
-void ModbusMaster::preTransmission(void (*preTransmission)(int8_t dePin, int8_t rePin))
+void ModbusMaster::preTransmission(void (*preTransmission)(void*), void* thisPtr)
 {
-  _preTransmissionWithPin = preTransmission;
-}
-
-void ModbusMaster::attachPins(int8_t dePin, int8_t rePin) 
-{
-  _dePin = dePin;
-  _rePin = rePin;
+  _preTransmissionWithThis = preTransmission;
+  callingInstance = thisPtr;
 }
 
 /**
@@ -226,22 +221,11 @@ void ModbusMaster::postTransmission(void (*postTransmission)())
 {
   _postTransmission = postTransmission;
 }
-/**
-Set post-transmission callback function.
 
-This function gets called after a Modbus message has finished sending
-(i.e. after all data has been physically transmitted onto the serial
-bus).
-
-Typical usage of this callback is to enable an RS485 transceiver's
-Receiver Enable pin, and disable its Driver Enable pin.
-
-@see ModbusMaster::ModbusMasterTransaction()
-@see ModbusMaster::preTransmission()
-*/
-void ModbusMaster::postTransmission(void (*postTransmission)(int8_t dePin, int8_t rePin))
+void ModbusMaster::postTransmission(void (*postTransmission)(void*), void* thisPtr)
 {
-  _postTransmissionWithPin = postTransmission;
+  _postTransmissionWithThis = postTransmission;
+  callingInstance = thisPtr;
 }
 
 /**
@@ -402,11 +386,12 @@ register.
 @ingroup register
 */
 uint8_t ModbusMaster::readHoldingRegisters(uint16_t u16ReadAddress,
-  uint16_t u16ReadQty)
+  uint16_t u16ReadQty, char* sentADU, size_t sentLen,
+   char* recADU, size_t recLen)
 {
   _u16ReadAddress = u16ReadAddress;
   _u16ReadQty = u16ReadQty;
-  return ModbusMasterTransaction(ku8MBReadHoldingRegisters);
+  return ModbusMasterTransaction(ku8MBReadHoldingRegisters, sentADU, sentLen, recADU, recLen);
 }
 
 
@@ -624,7 +609,7 @@ Sequence:
 @param u8MBFunction Modbus function (0x01..0xFF)
 @return 0 on success; exception number on failure
 */
-uint8_t ModbusMaster::ModbusMasterTransaction(uint8_t u8MBFunction)
+uint8_t ModbusMaster::ModbusMasterTransaction(uint8_t u8MBFunction, char* sentADU, size_t sentLen, char* recADU, size_t recLen)
 {
   uint8_t u8ModbusADU[256];
   uint8_t u8ModbusADUSize = 0;
@@ -736,24 +721,26 @@ uint8_t ModbusMaster::ModbusMasterTransaction(uint8_t u8MBFunction)
   {
     _preTransmission();
   }
-  else if (_preTransmissionWithPin) 
+  else if (_preTransmissionWithThis) 
   {
-    _preTransmissionWithPin(_dePin, _rePin);
+    _preTransmissionWithThis(callingInstance);
   }
   for (i = 0; i < u8ModbusADUSize; i++)
   {
-    _serial->write(u8ModbusADU[i]);
+    _serial->write(u8ModbusADU[i]); // sent the ADU
+    if (sentADU) snprintf(sentADU, sentLen, "%s [%02X]", sentADU, u8ModbusADU[i]); // format the ADU debug string
   }
-  
+
+  // prepare to receive
   u8ModbusADUSize = 0;
   _serial->flush();    // flush transmit buffer
   if (_postTransmission)
   {
     _postTransmission();
   }
-  else if (_postTransmissionWithPin)
+  else if (_postTransmissionWithThis)
   {
-    _postTransmissionWithPin(_dePin, _rePin);
+    _postTransmissionWithThis(callingInstance);
   }
 
   // loop until we run out of time or bytes, or an error occurs
@@ -767,6 +754,7 @@ uint8_t ModbusMaster::ModbusMasterTransaction(uint8_t u8MBFunction)
 #endif
       u8ModbusADU[u8ModbusADUSize++] = _serial->read();
       u8BytesLeft--;
+      if (recADU) snprintf(recADU, recLen, "%s [%02X]", recADU, u8ModbusADU[u8ModbusADUSize-1]); // format the ADU debug string
 #if __MODBUSMASTER_DEBUG__
       digitalWrite(__MODBUSMASTER_DEBUG_PIN_A__, false);
 #endif

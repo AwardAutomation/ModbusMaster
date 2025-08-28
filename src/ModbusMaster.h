@@ -74,10 +74,10 @@ class ModbusMaster
     void begin(uint8_t, Stream &serial);
     void idle(void (*)());
     void preTransmission(void (*)());
-    void preTransmission(void (*)(int8_t dePin, int8_t rePin));
+    void preTransmission(void (*)(void*), void*);
     void postTransmission(void (*)());
-    void postTransmission(void (*)(int8_t dePin, int8_t rePin));
-    void attachPins(int8_t dePin, int8_t rePin = -1);
+    void postTransmission(void (*)(void*), void*);
+    //void attachInstance(void* thisPtr);
 
     // Modbus exception codes
     /**
@@ -208,7 +208,7 @@ class ModbusMaster
     
     uint8_t  readCoils(uint16_t, uint16_t);
     uint8_t  readDiscreteInputs(uint16_t, uint16_t);
-    uint8_t  readHoldingRegisters(uint16_t, uint16_t);
+    uint8_t  readHoldingRegisters(uint16_t, uint16_t, char* sentADU = nullptr, size_t sentLen = 0, char* recADU = nullptr, size_t recLen = 0);
     uint8_t  readInputRegisters(uint16_t, uint8_t);
     uint8_t  writeSingleCoil(uint16_t, uint8_t);
     uint8_t  writeSingleRegister(uint16_t, uint16_t);
@@ -237,8 +237,7 @@ class ModbusMaster
     uint16_t* rxBuffer; // from Wire.h -- need to clean this up Rx
     uint8_t _u8ResponseBufferIndex;
     uint8_t _u8ResponseBufferLength;
-    uint8_t _dePin = -1;
-    uint8_t _rePin = -1;
+    void* callingInstance = nullptr;
 
     // Modbus function codes for bit access
     static const uint8_t ku8MBReadCoils                  = 0x01; ///< Modbus function 0x01 Read Coils
@@ -255,21 +254,21 @@ class ModbusMaster
     static const uint8_t ku8MBReadWriteMultipleRegisters = 0x17; ///< Modbus function 0x17 Read Write Multiple Registers
     
     // Modbus timeout [milliseconds]
-    static const uint16_t ku16MBResponseTimeout          = 2000; ///< Modbus timeout [milliseconds]
+    static uint16_t ku16MBResponseTimeout;           ///< Modbus timeout [milliseconds]
     
     // master function that conducts Modbus transactions
-    uint8_t ModbusMasterTransaction(uint8_t u8MBFunction);
+    uint8_t ModbusMasterTransaction(uint8_t u8MBFunction, char* sentADU = nullptr, size_t sentLen = 0, char* recADU = nullptr, size_t recLen = 0);
     
     // idle callback function; gets called during idle time between TX and RX
     void (*_idle)();
     // preTransmission callback function; gets called before writing a Modbus message
     void (*_preTransmission)();
-    // overload: preTransmission callback function with pin argument
-    void (*_preTransmissionWithPin)(int8_t dePin, int8_t rePin);
+    // overload preTransmission callback with this pointer (for use within objects)
+    void (*_preTransmissionWithThis)(void* thisPtr);
     // postTransmission callback function; gets called after a Modbus message has been sent
     void (*_postTransmission)();
-    // overload: postTransmission callback function
-    void (*_postTransmissionWithPin)(int8_t dePin, int8_t rePin);
+    // overload postTransmission callback with this pointer (for use within objects)
+    void (*_postTransmissionWithThis)(void* thisPtr);
 };
 #endif
 
